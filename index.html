@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A free, printable overtime form formatted to fit an A4 portrait page.">
+  <title>Overtime Form — A4 Print</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --ink: #20282e;
+      --muted: #65727b;
+      --line: #7b858b;
+      --paper: #fff;
+      --accent: #176d69;
+      --soft: #eff5f4;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 30px 18px 48px;
+      color: var(--ink);
+      background: #eef1f3;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .page-intro {
+      max-width: 1120px;
+      margin: 0 auto 18px;
+    }
+    .page-intro h1 { margin: 0 0 6px; font-size: 23px; letter-spacing: -.3px; }
+    .page-intro p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.45; }
+    .toolbar {
+      max-width: 1120px;
+      margin: 0 auto 14px;
+      display: flex;
+      align-items: center;
+      gap: 9px;
+    }
+    button {
+      border: 0;
+      border-radius: 7px;
+      padding: 10px 16px;
+      font: 600 14px Arial, sans-serif;
+      cursor: pointer;
+    }
+    .print-button { background: var(--accent); color: white; }
+    .clear-button { background: white; color: #38454b; box-shadow: inset 0 0 0 1px #c7d0d4; }
+    .paper-wrap { width: min(100%, 1120px); margin: auto; overflow-x: auto; }
+    .paper {
+      width: 100%;
+      min-width: 760px;
+      min-height: 540px;
+      padding: 32px 38px 28px;
+      margin: 0 auto;
+      background: var(--paper);
+      box-shadow: 0 8px 28px #23333c1a;
+    }
+    .form-title { margin: 0 0 13px; font-size: 19px; font-weight: 700; }
+    .employee-fields {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      column-gap: 24px;
+      row-gap: 5px;
+      margin-bottom: 13px;
+    }
+    .field-line { display: flex; align-items: end; gap: 8px; min-width: 0; font-size: 12px; }
+    .field-line label { white-space: nowrap; }
+    .field-line input { min-width: 30px; width: 100%; padding: 2px 3px 3px; border: 0; border-bottom: 1px solid var(--line); border-radius: 0; outline: 0; font: inherit; }
+    input:focus, textarea:focus { background: #f2faf9; outline: 1px solid #90c6c2; outline-offset: 0; }
+    .table-scroll { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th, td { border: 1px solid #667178; }
+    thead th {
+      height: 25px;
+      padding: 3px 2px;
+      text-align: center;
+      vertical-align: middle;
+      background: #F8CBAD;
+      font-size: 10px;
+      line-height: 1.1;
+      font-weight: 700;
+    }
+    thead tr:nth-child(2) th { height: 29px; font-weight: 600; }
+    tbody td { height: 24px; padding: 0; }
+    .row-number { text-align: center; font-size: 10px; }
+    .entry { width: 100%; height: 100%; min-width: 0; border: 0; border-radius: 0; padding: 2px 3px; background: transparent; font: 11px Arial, sans-serif; }
+    .time-entry { text-align: center; }
+    .time-entry.invalid-time { color: #b42318; background: #fff1f0; box-shadow: inset 0 0 0 1px #d92d20; }
+    .hours { text-align: center; font-size: 10px; font-weight: 600; }
+    .check-cell { text-align: center; }
+    .check-cell input { width: 12px; height: 12px; margin: 0; vertical-align: middle; accent-color: var(--accent); }
+    .reason-cell input { font-size: 10px; }
+    tfoot td { height: 22px; background: #f3f5f5; font-size: 10px; font-weight: 700; }
+    .grand-label { text-align: center; letter-spacing: .2px; }
+    #grand-total { text-align: center; }
+    #grand-night-total { text-align: center; }
+    .signatures { display: grid; grid-template-columns: repeat(3, 1fr); gap: 34px; margin-top: 28px; }
+    .signature { font-size: 11px; }
+    .signature .caption { margin-bottom: 25px; }
+    .signature .signature-line { height: 1px; background: #3f494e; margin-bottom: 5px; }
+    .signature .subcaption { color: #39444a; }
+    .tip { max-width: 1120px; margin: 11px auto 0; color: #68757c; font-size: 12px; }
+    @media (max-width: 700px) {
+      body { padding: 20px 10px 30px; }
+      .paper { padding: 22px 18px; }
+      .employee-fields { column-gap: 12px; }
+      .signatures { gap: 18px; }
+    }
+    @page { size: A4 portrait; margin: 7mm; }
+    @media print {
+      html, body { width: 100%; height: auto; padding: 0; margin: 0; background: white; }
+      .page-intro, .toolbar, .tip { display: none !important; }
+      .paper-wrap { width: 100%; max-width: none; margin: 0; overflow: visible; }
+      .paper { width: 100%; min-width: 0; min-height: 134mm; padding: 0; margin: 0; box-shadow: none; display: flex; flex-direction: column; }
+      .form-title { margin: 0 0 2.2mm; font-size: 12pt; }
+      .employee-fields { column-gap: 6mm; row-gap: 1mm; margin-bottom: 2.3mm; }
+      .field-line { gap: 2mm; font-size: 7.2pt; }
+      .field-line input { padding: 0 1mm .5mm; background: transparent !important; outline: none !important; }
+      .table-scroll { overflow: visible; }
+      table { width: 100%; }
+      thead th { height: 6mm; padding: .5mm .35mm; font-size: 6.2pt; line-height: 1.05; background: #F8CBAD; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      thead tr:nth-child(2) th { height: 7mm; }
+      tbody td { height: 6mm; }
+      .entry { padding: 0 .5mm; font-size: 6.2pt; }
+      .time-entry.invalid-time { color: #b42318 !important; outline: .35mm solid #d92d20; background: #fff1f0 !important; }
+      .row-number, .hours { font-size: 6pt; }
+      .check-cell input { width: 3mm; height: 3mm; accent-color: black; }
+      tfoot td { height: 5mm; font-size: 6.5pt; background: white; }
+      .signatures { gap: 11mm; margin-top: auto; padding-top: 7mm; }
+      .signature { font-size: 6.8pt; }
+      .signature .caption { margin-bottom: 7mm; }
+      .signature .signature-line { height: 0; background: transparent; border-bottom: .3mm solid #333; margin-bottom: 1mm; }
+      .signature .subcaption { color: #333; }
+      input { color: black; }
+      input::placeholder { color: transparent; }
+      tr, td, th { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <header class="page-intro">
+    <h1>Overtime Form</h1>
+    <p>Fill in the form, then print on A4 paper in Portrait orientation. The form prints on the upper half of the page.</p>
+  </header>
+  <nav class="toolbar" aria-label="Form actions">
+    <button class="print-button" type="button" onclick="window.print()">Print form</button>
+    <button class="clear-button" type="button" id="clear-form">Clear form</button>
+  </nav>
+
+  <main class="paper-wrap">
+    <section class="paper" aria-label="Printable overtime form">
+      <h2 class="form-title">Overtime Form</h2>
+      <div class="employee-fields">
+        <div class="field-line"><label for="employee-name">Employee Name</label><input id="employee-name" autocomplete="name"></div>
+        <div class="field-line"><label for="employee-id">Employee ID</label><input id="employee-id"></div>
+        <div class="field-line"><label for="position">Position</label><input id="position"></div>
+        <div class="field-line"><label for="department">Department</label><input id="department"></div>
+      </div>
+
+      <div class="table-scroll">
+        <table aria-label="Overtime details">
+          <colgroup>
+            <col style="width:4%"><col style="width:9%">
+            <col style="width:5.5%"><col style="width:5.5%">
+            <col style="width:5.5%"><col style="width:5.5%">
+            <col style="width:5.5%">
+            <col style="width:5%"><col style="width:5%"><col style="width:5%"><col style="width:5%">
+            <col style="width:26%"><col style="width:13.5%">
+          </colgroup>
+          <thead>
+            <tr>
+              <th rowspan="2">No.</th>
+              <th rowspan="2">Date</th>
+              <th colspan="2">Working Time</th>
+              <th colspan="2">Overtime</th>
+              <th rowspan="2">Total<br>(hrs)</th>
+              <th colspan="4">Types of Overtime</th>
+              <th rowspan="2">Reason</th>
+              <th rowspan="2">Night Diff.<br>(10 PM–6 AM)</th>
+            </tr>
+            <tr>
+              <th>From</th><th>To</th><th>From</th><th>To</th>
+              <th>Regular<br>Overtime</th><th>Rest Day<br>Overtime</th><th>Legal Holiday<br>OT</th><th>Special Holiday<br>OT</th>
+            </tr>
+          </thead>
+          <tbody id="overtime-rows"></tbody>
+          <tfoot>
+            <tr><td class="grand-label" colspan="6">Grand Total</td><td id="grand-total">0.00</td><td colspan="5"></td><td id="grand-night-total">0.00</td></tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <div class="signatures">
+        <div class="signature"><div class="caption">Applied by,</div><div class="signature-line"></div><div class="subcaption">Signature / Date</div></div>
+        <div class="signature"><div class="caption">Approved by,</div><div class="signature-line"></div><div class="subcaption">Signature / Date</div></div>
+        <div class="signature"><div class="caption">Acknowledged by,</div><div class="signature-line"></div><div class="subcaption">Signature / Date</div></div>
+      </div>
+    </section>
+  </main>
+  <p class="tip">Tip: Select A4 paper, Portrait orientation, and 100% or Actual size. The form prints on the upper half of the page.</p>
+
+  <script>
+    const body = document.getElementById('overtime-rows');
+    const fields = ['date', 'work-from', 'work-to', 'ot-from', 'ot-to', 'reason'];
+    for (let row = 1; row <= 10; row++) {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td class="row-number">${row}</td>
+        <td><input class="entry" type="date" aria-label="Date, row ${row}"></td>
+        <td><input class="entry time-entry" type="text" inputmode="numeric" maxlength="5" placeholder="hh:mm" title="Enter time as HH:MM (24-hour)" aria-label="Working time from, row ${row}"></td>
+        <td><input class="entry time-entry" type="text" inputmode="numeric" maxlength="5" placeholder="hh:mm" title="Enter time as HH:MM (24-hour)" aria-label="Working time to, row ${row}"></td>
+        <td><input class="entry time-entry ot-start" type="text" inputmode="numeric" maxlength="5" placeholder="hh:mm" title="Enter time as HH:MM (24-hour)" aria-label="Overtime from, row ${row}"></td>
+        <td><input class="entry time-entry ot-end" type="text" inputmode="numeric" maxlength="5" placeholder="hh:mm" title="Enter time as HH:MM (24-hour)" aria-label="Overtime to, row ${row}"></td>
+        <td class="hours">0.00</td>
+        <td class="check-cell"><input type="checkbox" aria-label="Regular overtime, row ${row}"></td>
+        <td class="check-cell"><input type="checkbox" aria-label="Rest day overtime, row ${row}"></td>
+        <td class="check-cell"><input type="checkbox" aria-label="Legal holiday overtime, row ${row}"></td>
+        <td class="check-cell"><input type="checkbox" aria-label="Special holiday overtime, row ${row}"></td>
+        <td class="reason-cell"><input class="entry" type="text" aria-label="Reason, row ${row}"></td>
+        <td class="hours night-diff">0.00</td>`;
+      body.appendChild(tr);
+    }
+
+    function timeToMinutes(value) {
+      const time = value.trim();
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(time)) return null;
+      const [hours, minutes] = time.split(':').map(Number);
+      return hours * 60 + minutes;
+    }
+
+    function durationHours(start, end) {
+      const startMinutes = timeToMinutes(start);
+      const endMinutes = timeToMinutes(end);
+      if (startMinutes === null || endMinutes === null) return 0;
+      let duration = endMinutes - startMinutes;
+      if (duration < 0) duration += 24 * 60;
+      return duration / 60;
+    }
+
+    function nightDifferentialHours(start, end) {
+      const startMinutes = timeToMinutes(start);
+      const endMinutes = timeToMinutes(end);
+      if (startMinutes === null || endMinutes === null || startMinutes === endMinutes) return 0;
+      const endAbsolute = endMinutes < startMinutes ? endMinutes + 24 * 60 : endMinutes;
+      let nightMinutes = 0;
+      for (let day = -1; day <= 2; day++) {
+        const nightStart = day * 24 * 60 + 22 * 60;
+        const nightEnd = day * 24 * 60 + 30 * 60;
+        nightMinutes += Math.max(0, Math.min(endAbsolute, nightEnd) - Math.max(startMinutes, nightStart));
+      }
+      return nightMinutes / 60;
+    }
+
+    function updateTotals() {
+      let grand = 0;
+      let grandNight = 0;
+      body.querySelectorAll('.time-entry').forEach((input) => {
+        const invalid = input.value.trim() !== '' && timeToMinutes(input.value) === null;
+        input.classList.toggle('invalid-time', invalid);
+        input.setAttribute('aria-invalid', invalid ? 'true' : 'false');
+      });
+      body.querySelectorAll('tr').forEach((row) => {
+        const start = row.querySelector('.ot-start').value;
+        const end = row.querySelector('.ot-end').value;
+        const value = durationHours(start, end);
+        const nightValue = nightDifferentialHours(start, end);
+        row.querySelector('.hours').textContent = value.toFixed(2);
+        row.querySelector('.night-diff').textContent = nightValue.toFixed(2);
+        grand += value;
+        grandNight += nightValue;
+      });
+      document.getElementById('grand-total').textContent = grand.toFixed(2);
+      document.getElementById('grand-night-total').textContent = grandNight.toFixed(2);
+    }
+    body.addEventListener('input', updateTotals);
+    document.getElementById('clear-form').addEventListener('click', () => {
+      if (!window.confirm('Clear all entries in this form?')) return;
+      document.querySelectorAll('.paper input').forEach((input) => {
+        if (input.type === 'checkbox') input.checked = false;
+        else input.value = '';
+      });
+      updateTotals();
+    });
+    updateTotals();
+  </script>
+</body>
+</html>
