@@ -44,6 +44,8 @@
       cursor: pointer;
     }
     .print-button { background: var(--accent); color: white; }
+    .save-button { background: #234d49; color: white; }
+    .open-button { background: white; color: #38454b; box-shadow: inset 0 0 0 1px #c7d0d4; }
     .clear-button { background: white; color: #38454b; box-shadow: inset 0 0 0 1px #c7d0d4; }
     .paper-wrap { width: min(100%, 1120px); margin: auto; overflow-x: auto; }
     .paper {
@@ -140,12 +142,15 @@
 <body>
   <header class="page-intro">
     <h1>Overtime Form</h1>
-    <p>Fill in the form, then print on A4 paper in Portrait orientation. The form prints on the upper half of the page.</p>
+    <p>Fill in the form, then print on A4 paper in Portrait orientation. The form prints on the upper half of the page. Use Save file to keep a copy of your entries.</p>
   </header>
   <nav class="toolbar" aria-label="Form actions">
     <button class="print-button" type="button" onclick="window.print()">Print form</button>
+    <button class="save-button" type="button" id="save-file">Save file</button>
+    <button class="open-button" type="button" id="open-file">Open saved file</button>
     <button class="clear-button" type="button" id="clear-form">Clear form</button>
   </nav>
+  <input id="saved-form-file" type="file" accept=".json,application/json" hidden aria-label="Open saved overtime form file">
 
   <main class="paper-wrap">
     <section class="paper" aria-label="Printable overtime form">
@@ -206,16 +211,16 @@
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="row-number">${row}</td>
-        <td><input class="entry" type="date" aria-label="Date, row ${row}"></td>
-        <td><input class="entry time-entry" type="text" inputmode="numeric" maxlength="5" placeholder="hh:mm" title="Enter time as HH:MM (24-hour)" aria-label="Working time from, row ${row}"></td>
-        <td><input class="entry time-entry" type="text" inputmode="numeric" maxlength="5" placeholder="hh:mm" title="Enter time as HH:MM (24-hour)" aria-label="Working time to, row ${row}"></td>
+        <td><input class="entry date-entry" type="date" aria-label="Date, row ${row}"></td>
+        <td><input class="entry time-entry work-from-time" type="text" inputmode="numeric" maxlength="5" placeholder="hh:mm" title="Enter time as HH:MM (24-hour)" aria-label="Working time from, row ${row}"></td>
+        <td><input class="entry time-entry work-to-time" type="text" inputmode="numeric" maxlength="5" placeholder="hh:mm" title="Enter time as HH:MM (24-hour)" aria-label="Working time to, row ${row}"></td>
         <td><input class="entry time-entry ot-start" type="text" inputmode="numeric" maxlength="5" placeholder="hh:mm" title="Enter time as HH:MM (24-hour)" aria-label="Overtime from, row ${row}"></td>
         <td><input class="entry time-entry ot-end" type="text" inputmode="numeric" maxlength="5" placeholder="hh:mm" title="Enter time as HH:MM (24-hour)" aria-label="Overtime to, row ${row}"></td>
         <td class="hours">0.00</td>
-        <td class="check-cell"><input type="checkbox" aria-label="Regular overtime, row ${row}"></td>
-        <td class="check-cell"><input type="checkbox" aria-label="Rest day overtime, row ${row}"></td>
-        <td class="check-cell"><input type="checkbox" aria-label="Legal holiday overtime, row ${row}"></td>
-        <td class="check-cell"><input type="checkbox" aria-label="Special holiday overtime, row ${row}"></td>
+        <td class="check-cell"><input class="type-regular" type="checkbox" aria-label="Regular overtime, row ${row}"></td>
+        <td class="check-cell"><input class="type-rest" type="checkbox" aria-label="Rest day overtime, row ${row}"></td>
+        <td class="check-cell"><input class="type-legal" type="checkbox" aria-label="Legal holiday overtime, row ${row}"></td>
+        <td class="check-cell"><input class="type-special" type="checkbox" aria-label="Special holiday overtime, row ${row}"></td>
         <td class="reason-cell"><input class="entry" type="text" aria-label="Reason, row ${row}"></td>
         <td class="hours night-diff">0.00</td>`;
       body.appendChild(tr);
@@ -272,6 +277,87 @@
       document.getElementById('grand-total').textContent = grand.toFixed(2);
       document.getElementById('grand-night-total').textContent = grandNight.toFixed(2);
     }
+
+    function readFormData() {
+      return {
+        format: 'overtime-form',
+        version: 1,
+        savedAt: new Date().toISOString(),
+        employee: {
+          name: document.getElementById('employee-name').value,
+          id: document.getElementById('employee-id').value,
+          position: document.getElementById('position').value,
+          department: document.getElementById('department').value
+        },
+        rows: Array.from(body.querySelectorAll('tr'), (row) => ({
+          date: row.querySelector('.date-entry').value,
+          workFrom: row.querySelector('.work-from-time').value,
+          workTo: row.querySelector('.work-to-time').value,
+          overtimeFrom: row.querySelector('.ot-start').value,
+          overtimeTo: row.querySelector('.ot-end').value,
+          types: {
+            regular: row.querySelector('.type-regular').checked,
+            rest: row.querySelector('.type-rest').checked,
+            legal: row.querySelector('.type-legal').checked,
+            special: row.querySelector('.type-special').checked
+          },
+          reason: row.querySelector('.reason-cell input').value
+        }))
+      };
+    }
+
+    document.getElementById('save-file').addEventListener('click', () => {
+      const data = readFormData();
+      const name = (data.employee.name || 'blank').trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'blank';
+      const date = new Date().toISOString().slice(0, 10);
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `overtime-form-${name}-${date}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
+
+    document.getElementById('open-file').addEventListener('click', () => {
+      document.getElementById('saved-form-file').click();
+    });
+
+    document.getElementById('saved-form-file').addEventListener('change', async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      try {
+        const data = JSON.parse(await file.text());
+        if (data?.format !== 'overtime-form' || !Array.isArray(data.rows)) throw new Error('Invalid overtime form file');
+        const employee = data.employee && typeof data.employee === 'object' ? data.employee : {};
+        document.getElementById('employee-name').value = typeof employee.name === 'string' ? employee.name : '';
+        document.getElementById('employee-id').value = typeof employee.id === 'string' ? employee.id : '';
+        document.getElementById('position').value = typeof employee.position === 'string' ? employee.position : '';
+        document.getElementById('department').value = typeof employee.department === 'string' ? employee.department : '';
+        body.querySelectorAll('tr').forEach((row, index) => {
+          const saved = data.rows[index] && typeof data.rows[index] === 'object' ? data.rows[index] : {};
+          row.querySelector('.date-entry').value = typeof saved.date === 'string' ? saved.date : '';
+          row.querySelector('.work-from-time').value = typeof saved.workFrom === 'string' ? saved.workFrom : '';
+          row.querySelector('.work-to-time').value = typeof saved.workTo === 'string' ? saved.workTo : '';
+          row.querySelector('.ot-start').value = typeof saved.overtimeFrom === 'string' ? saved.overtimeFrom : '';
+          row.querySelector('.ot-end').value = typeof saved.overtimeTo === 'string' ? saved.overtimeTo : '';
+          row.querySelector('.reason-cell input').value = typeof saved.reason === 'string' ? saved.reason : '';
+          const types = saved.types && typeof saved.types === 'object' ? saved.types : {};
+          row.querySelector('.type-regular').checked = Boolean(types.regular);
+          row.querySelector('.type-rest').checked = Boolean(types.rest);
+          row.querySelector('.type-legal').checked = Boolean(types.legal);
+          row.querySelector('.type-special').checked = Boolean(types.special);
+        });
+        updateTotals();
+      } catch {
+        window.alert('Hindi mabuksan ang file. Pumili ng Overtime Form .json backup.');
+      } finally {
+        event.target.value = '';
+      }
+    });
+
     body.addEventListener('input', updateTotals);
     document.getElementById('clear-form').addEventListener('click', () => {
       if (!window.confirm('Clear all entries in this form?')) return;
