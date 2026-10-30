@@ -45,6 +45,7 @@
     }
     .print-button { background: var(--accent); color: white; }
     .save-button { background: #234d49; color: white; }
+    .word-button { background: #315e8a; color: white; }
     .open-button { background: white; color: #38454b; box-shadow: inset 0 0 0 1px #c7d0d4; }
     .clear-button { background: white; color: #38454b; box-shadow: inset 0 0 0 1px #c7d0d4; }
     .paper-wrap { width: min(100%, 1120px); margin: auto; overflow-x: auto; }
@@ -142,11 +143,12 @@
 <body>
   <header class="page-intro">
     <h1>Overtime Form</h1>
-    <p>Fill in the form, then print on A4 paper in Portrait orientation. The form prints on the upper half of the page. Use Save file to keep a copy of your entries.</p>
+    <p>Fill in the form, then print on A4 paper in Portrait orientation. The form prints on the upper half of the page. Save a backup file or download an editable Word copy of your entries.</p>
   </header>
   <nav class="toolbar" aria-label="Form actions">
     <button class="print-button" type="button" onclick="window.print()">Print form</button>
     <button class="save-button" type="button" id="save-file">Save file</button>
+    <button class="word-button" type="button" id="save-word">Save as Word</button>
     <button class="open-button" type="button" id="open-file">Open saved file</button>
     <button class="clear-button" type="button" id="clear-form">Clear form</button>
   </nav>
@@ -305,6 +307,225 @@
         }))
       };
     }
+
+    function wordXmlEscape(value) {
+      return String(value ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+    }
+
+    function wordRun(text, options = {}) {
+      const font = options.font || 'Arial';
+      const size = options.size || 12;
+      const lines = String(text ?? ' ').split('\n');
+      const content = lines.map((line, index) => `${index ? '<w:br/>' : ''}<w:t xml:space="preserve">${wordXmlEscape(line || ' ')}</w:t>`).join('');
+      return `<w:r><w:rPr><w:rFonts w:ascii="${font}" w:hAnsi="${font}" w:eastAsia="${font}"/><w:sz w:val="${size}"/>${options.bold ? '<w:b/>' : ''}</w:rPr>${content}</w:r>`;
+    }
+
+    function wordParagraph(content, options = {}) {
+      const align = options.align || 'left';
+      const spacing = `<w:spacing w:before="${options.before || 0}" w:after="${options.after || 0}" w:line="${options.line || 240}" w:lineRule="auto"/>`;
+      const border = options.borderBottom ? '<w:pBdr><w:bottom w:val="single" w:sz="5" w:space="1" w:color="404040"/></w:pBdr>' : '';
+      const pPr = `<w:pPr>${spacing}<w:jc w:val="${align}"/>${border}</w:pPr>`;
+      const runs = Array.isArray(content)
+        ? content.map((part) => wordRun(part.text, { font: part.font || options.font, size: part.size || options.size, bold: part.bold })).join('')
+        : wordRun(content, options);
+      return `<w:p>${pPr}${runs || wordRun(' ')}</w:p>`;
+    }
+
+    function wordCell(widths, start, span, paragraphXml, options = {}) {
+      const width = widths.slice(start, start + span).reduce((sum, value) => sum + value, 0);
+      const gridSpan = span > 1 ? `<w:gridSpan w:val="${span}"/>` : '';
+      const verticalMerge = options.vMerge === 'restart' ? '<w:vMerge w:val="restart"/>' : options.vMerge === 'continue' ? '<w:vMerge/>' : '';
+      const shading = options.shade ? '<w:shd w:val="clear" w:color="auto" w:fill="F8CBAD"/>' : '';
+      const margins = '<w:tcMar><w:top w:w="30" w:type="dxa"/><w:left w:w="35" w:type="dxa"/><w:bottom w:w="30" w:type="dxa"/><w:right w:w="35" w:type="dxa"/></w:tcMar>';
+      const content = options.vMerge === 'continue' ? '<w:p/>' : paragraphXml;
+      return `<w:tc><w:tcPr><w:tcW w:w="${width}" w:type="dxa"/>${gridSpan}${verticalMerge}${shading}${margins}<w:vAlign w:val="center"/></w:tcPr>${content}</w:tc>`;
+    }
+
+    function wordRow(cells, height) {
+      return `<w:tr><w:trPr><w:trHeight w:val="${height}" w:hRule="atLeast"/></w:trPr>${cells.join('')}</w:tr>`;
+    }
+
+    function wordTable(widths, rows, bordered = true) {
+      const totalWidth = widths.reduce((sum, value) => sum + value, 0);
+      const borderStyle = bordered
+        ? '<w:top w:val="single" w:sz="5" w:color="667178"/><w:left w:val="single" w:sz="5" w:color="667178"/><w:bottom w:val="single" w:sz="5" w:color="667178"/><w:right w:val="single" w:sz="5" w:color="667178"/><w:insideH w:val="single" w:sz="5" w:color="667178"/><w:insideV w:val="single" w:sz="5" w:color="667178"/>'
+        : '<w:top w:val="nil"/><w:left w:val="nil"/><w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/>';
+      const grid = widths.map((width) => `<w:gridCol w:w="${width}"/>`).join('');
+      return `<w:tbl><w:tblPr><w:tblW w:w="${totalWidth}" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders>${borderStyle}</w:tblBorders><w:tblCellMar><w:top w:w="25" w:type="dxa"/><w:left w:w="30" w:type="dxa"/><w:bottom w:w="25" w:type="dxa"/><w:right w:w="30" w:type="dxa"/></w:tblCellMar></w:tblPr><w:tblGrid>${grid}</w:tblGrid>${rows.join('')}</w:tbl>`;
+    }
+
+    function wordCrc32(bytes) {
+      let crc = 0xffffffff;
+      for (let index = 0; index < bytes.length; index++) {
+        crc ^= bytes[index];
+        for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+      }
+      return (crc ^ 0xffffffff) >>> 0;
+    }
+
+    function wordZip(files) {
+      const encoder = new TextEncoder();
+      const localParts = [];
+      const centralParts = [];
+      let localOffset = 0;
+      for (const [name, text] of files) {
+        const nameBytes = encoder.encode(name);
+        const data = encoder.encode(text);
+        const crc = wordCrc32(data);
+        const local = new Uint8Array(30 + nameBytes.length);
+        const localView = new DataView(local.buffer);
+        localView.setUint32(0, 0x04034b50, true);
+        localView.setUint16(4, 20, true);
+        localView.setUint16(6, 0x0800, true);
+        localView.setUint16(8, 0, true);
+        localView.setUint16(10, 0, true);
+        localView.setUint16(12, 0, true);
+        localView.setUint32(14, crc, true);
+        localView.setUint32(18, data.length, true);
+        localView.setUint32(22, data.length, true);
+        localView.setUint16(26, nameBytes.length, true);
+        localView.setUint16(28, 0, true);
+        local.set(nameBytes, 30);
+        localParts.push(local, data);
+
+        const central = new Uint8Array(46 + nameBytes.length);
+        const centralView = new DataView(central.buffer);
+        centralView.setUint32(0, 0x02014b50, true);
+        centralView.setUint16(4, 20, true);
+        centralView.setUint16(6, 20, true);
+        centralView.setUint16(8, 0x0800, true);
+        centralView.setUint16(10, 0, true);
+        centralView.setUint16(12, 0, true);
+        centralView.setUint16(14, 0, true);
+        centralView.setUint32(16, crc, true);
+        centralView.setUint32(20, data.length, true);
+        centralView.setUint32(24, data.length, true);
+        centralView.setUint16(28, nameBytes.length, true);
+        centralView.setUint16(30, 0, true);
+        centralView.setUint16(32, 0, true);
+        centralView.setUint16(34, 0, true);
+        centralView.setUint16(36, 0, true);
+        centralView.setUint32(38, 0, true);
+        centralView.setUint32(42, localOffset, true);
+        central.set(nameBytes, 46);
+        centralParts.push(central);
+        localOffset += local.length + data.length;
+      }
+      const centralSize = centralParts.reduce((sum, part) => sum + part.length, 0);
+      const end = new Uint8Array(22);
+      const endView = new DataView(end.buffer);
+      endView.setUint32(0, 0x06054b50, true);
+      endView.setUint16(4, 0, true);
+      endView.setUint16(6, 0, true);
+      endView.setUint16(8, files.length, true);
+      endView.setUint16(10, files.length, true);
+      endView.setUint32(12, centralSize, true);
+      endView.setUint32(16, localOffset, true);
+      endView.setUint16(20, 0, true);
+      return new Blob([...localParts, ...centralParts, end]);
+    }
+
+    function makeWordDocument(data) {
+      const widths = [4, 9, 5.5, 5.5, 5.5, 5.5, 5.5, 5, 5, 5, 5, 26, 13.5].map((percent) => Math.round(percent * 11000 / 100));
+      widths[widths.length - 1] += 11000 - widths.reduce((sum, value) => sum + value, 0);
+      const headerOptions = { align: 'center', bold: true, size: 11, line: 210 };
+      const headerRows = [
+        wordRow([
+          wordCell(widths, 0, 1, wordParagraph('No.', headerOptions), { shade: true, vMerge: 'restart' }),
+          wordCell(widths, 1, 1, wordParagraph('Date', headerOptions), { shade: true, vMerge: 'restart' }),
+          wordCell(widths, 2, 2, wordParagraph('Working Time', headerOptions), { shade: true }),
+          wordCell(widths, 4, 2, wordParagraph('Overtime', headerOptions), { shade: true }),
+          wordCell(widths, 6, 1, wordParagraph('Total\n(hrs)', headerOptions), { shade: true, vMerge: 'restart' }),
+          wordCell(widths, 7, 4, wordParagraph('Types of Overtime', headerOptions), { shade: true }),
+          wordCell(widths, 11, 1, wordParagraph('Reason', headerOptions), { shade: true, vMerge: 'restart' }),
+          wordCell(widths, 12, 1, wordParagraph('Night Diff.\n(10 PM–6 AM)', headerOptions), { shade: true, vMerge: 'restart' })
+        ], 390),
+        wordRow([
+          wordCell(widths, 0, 1, '', { vMerge: 'continue' }),
+          wordCell(widths, 1, 1, '', { vMerge: 'continue' }),
+          ...['From', 'To', 'From', 'To'].map((label, index) => wordCell(widths, index + 2, 1, wordParagraph(label, headerOptions), { shade: true })),
+          wordCell(widths, 6, 1, '', { vMerge: 'continue' }),
+          ...['Regular\nOvertime', 'Rest Day\nOvertime', 'Legal Holiday\nOT', 'Special Holiday\nOT'].map((label, index) => wordCell(widths, index + 7, 1, wordParagraph(label, { ...headerOptions, size: 10 }), { shade: true })),
+          wordCell(widths, 11, 1, '', { vMerge: 'continue' }),
+          wordCell(widths, 12, 1, '', { vMerge: 'continue' })
+        ], 430)
+      ];
+      const liveRows = Array.from(body.querySelectorAll('tr'));
+      const entryRows = data.rows.map((entry, index) => {
+        const liveRow = liveRows[index];
+        const date = entry.date ? `${entry.date.slice(5, 7)}/${entry.date.slice(8, 10)}/${entry.date.slice(0, 4)}` : '';
+        const center = { align: 'center', size: 10, line: 200 };
+        const checkbox = (checked) => wordParagraph(checked ? '☑' : '☐', { ...center, font: 'Segoe UI Symbol', size: 12 });
+        return wordRow([
+          wordCell(widths, 0, 1, wordParagraph(String(index + 1), center)),
+          wordCell(widths, 1, 1, wordParagraph(date, center)),
+          wordCell(widths, 2, 1, wordParagraph(entry.workFrom, center)),
+          wordCell(widths, 3, 1, wordParagraph(entry.workTo, center)),
+          wordCell(widths, 4, 1, wordParagraph(entry.overtimeFrom, center)),
+          wordCell(widths, 5, 1, wordParagraph(entry.overtimeTo, center)),
+          wordCell(widths, 6, 1, wordParagraph(liveRow.querySelector('.hours').textContent, { ...center, bold: true })),
+          wordCell(widths, 7, 1, checkbox(entry.types.regular)),
+          wordCell(widths, 8, 1, checkbox(entry.types.rest)),
+          wordCell(widths, 9, 1, checkbox(entry.types.legal)),
+          wordCell(widths, 10, 1, checkbox(entry.types.special)),
+          wordCell(widths, 11, 1, wordParagraph(entry.reason, { size: 10, line: 200 })),
+          wordCell(widths, 12, 1, wordParagraph(liveRow.querySelector('.night-diff').textContent, { ...center, bold: true }))
+        ], 300);
+      });
+      const totalRows = [wordRow([
+        wordCell(widths, 0, 6, wordParagraph('Grand Total', { align: 'center', bold: true, size: 11 })),
+        wordCell(widths, 6, 1, wordParagraph(document.getElementById('grand-total').textContent, { align: 'center', bold: true, size: 11 })),
+        wordCell(widths, 7, 5, wordParagraph(' ', { size: 10 })),
+        wordCell(widths, 12, 1, wordParagraph(document.getElementById('grand-night-total').textContent, { align: 'center', bold: true, size: 11 }))
+      ], 330)];
+      const formTable = wordTable(widths, [...headerRows, ...entryRows, ...totalRows]);
+
+      const fieldWidths = [5500, 5500];
+      const fieldCell = (label, value, column) => wordCell(fieldWidths, column, 1,
+        wordParagraph([{ text: `${label}: `, bold: true }, { text: value || ' ' }], { size: 14, borderBottom: true, line: 240 }), {});
+      const fieldsTable = wordTable(fieldWidths, [
+        wordRow([fieldCell('Employee Name', data.employee.name, 0), fieldCell('Employee ID', data.employee.id, 1)], 350),
+        wordRow([fieldCell('Position', data.employee.position, 0), fieldCell('Department', data.employee.department, 1)], 350)
+      ], false);
+
+      const signatureWidths = [3667, 3667, 3666];
+      const signatureCell = (caption, column) => wordCell(signatureWidths, column, 1,
+        wordParagraph(caption, { size: 13, after: 170 }) + wordParagraph(' ', { borderBottom: true, line: 240, after: 45 }) + wordParagraph('Signature / Date', { size: 12 }), {});
+      const signatures = wordTable(signatureWidths, [wordRow([
+        signatureCell('Applied by,', 0),
+        signatureCell('Approved by,', 1),
+        signatureCell('Acknowledged by,', 2)
+      ], 850)], false);
+
+      const employee = data.employee;
+      const title = wordParagraph('Overtime Form', { bold: true, size: 28, after: 100 });
+      const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` +
+        `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>` +
+        `${title}${fieldsTable}${wordParagraph(' ', { size: 4, line: 90 })}${formTable}${wordParagraph(' ', { size: 4, line: 120 })}${signatures}` +
+        `<w:sectPr><w:pgSz w:w="11906" w:h="16838" w:orient="portrait"/><w:pgMar w:top="520" w:right="450" w:bottom="520" w:left="450" w:header="250" w:footer="250" w:gutter="0"/></w:sectPr>` +
+        `</w:body></w:document>`;
+      const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`;
+      const relationships = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`;
+      return wordZip([
+        ['[Content_Types].xml', contentTypes],
+        ['_rels/.rels', relationships],
+        ['word/document.xml', documentXml]
+      ]);
+    }
+
+    document.getElementById('save-word').addEventListener('click', () => {
+      const data = readFormData();
+      const name = (data.employee.name || 'blank').trim().replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').toLowerCase() || 'blank';
+      const date = new Date().toISOString().slice(0, 10);
+      const url = URL.createObjectURL(makeWordDocument(data));
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `overtime-form-${name}-${date}.docx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    });
 
     document.getElementById('save-file').addEventListener('click', () => {
       const data = readFormData();
